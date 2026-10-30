@@ -175,3 +175,81 @@ with st.expander("Informasi Model DNN"):
     st.write("Nama model:", info.get("nama_model", "DNN"))
     st.write("Accuracy test:", info.get("metrik", {}).get("accuracy"))
     st.write("F1 macro test:", info.get("metrik", {}).get("f1_macro"))
+
+# ==========================================
+# PREDIKSI BANYAK MAHASISWA MELALUI FILE CSV
+# ==========================================
+
+st.divider()
+st.subheader("📁 Prediksi dari File CSV")
+
+st.write(
+    "Unggah file CSV yang berisi data akademik mahasiswa. "
+    "Sistem akan memprediksi status akademik setiap mahasiswa."
+)
+
+FITUR = info["fitur_numerik"] + info["fitur_kategori"]
+
+uploaded_file = st.file_uploader(
+    "Pilih file CSV",
+    type=["csv"]
+)
+
+if uploaded_file is not None:
+    try:
+        df_csv = pd.read_csv(uploaded_file)
+
+        st.write("### Data yang Diunggah")
+        st.dataframe(df_csv, use_container_width=True)
+
+        # Memeriksa kolom wajib
+        kolom_kurang = [
+            kolom for kolom in FITUR
+            if kolom not in df_csv.columns
+        ]
+
+        if kolom_kurang:
+            st.error(
+                "Kolom berikut belum tersedia: "
+                + ", ".join(kolom_kurang)
+            )
+
+        elif df_csv.empty:
+            st.warning("File CSV tidak memiliki data.")
+
+        else:
+            if st.button("Prediksi Semua Data"):
+                # Prediksi menggunakan model DNN
+                hasil_prediksi = model.predict(df_csv[FITUR])
+
+                # Mengubah label angka menjadi nama status
+                df_csv["prediksi_status"] = [
+                    LABEL_STATUS.get(int(label), "Tidak dikenal")
+                    for label in hasil_prediksi
+                ]
+
+                st.success("Prediksi seluruh data berhasil!")
+
+                st.write("### Hasil Prediksi")
+                st.dataframe(
+                    df_csv,
+                    use_container_width=True
+                )
+
+                st.write("### Jumlah Mahasiswa per Status")
+                st.write(
+                    df_csv["prediksi_status"].value_counts()
+                )
+
+                # Download hasil sebagai CSV
+                hasil_csv = df_csv.to_csv(index=False).encode("utf-8")
+
+                st.download_button(
+                    label="⬇️ Download Hasil Prediksi CSV",
+                    data=hasil_csv,
+                    file_name="hasil_prediksi_status_akademik.csv",
+                    mime="text/csv"
+                )
+
+    except Exception as e:
+        st.error(f"Terjadi kesalahan: {e}")
